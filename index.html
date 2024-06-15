@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reservation Status</title>
+    <style>
+        .status-table {
+            margin-top: 20px;
+            border-collapse: collapse;
+            width: 100%;
+        }
+        .status-table th, .status-table td {
+            border: 1px solid black;
+            padding: 8px;
+            text-align: left;
+        }
+        .status-table th {
+            background-color: #f2f2f2;
+        }
+    </style>
+</head>
+<body>
+    <h1>Check Reservation Status</h1>
+    <label for="today">Today? (y/n): </label>
+    <input type="text" id="today" name="today"><br><br>
+    <label for="day">Day: </label>
+    <input type="text" id="day" name="day"><br><br>
+    <label for="month">Month: </label>
+    <input type="text" id="month" name="month"><br><br>
+    <label for="year">Year: </label>
+    <input type="text" id="year" name="year"><br><br>
+    <button onclick="checkReservation()">Check Reservation</button>
+
+    <table class="status-table">
+        <thead>
+            <tr>
+                <th>Time</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody id="statusTableBody">
+        </tbody>
+    </table>
+
+    <script>
+        function checkReservation() {
+            const today = document.getElementById('today').value.toLowerCase();
+            let day, month, year;
+
+            if (today === 'y') {
+                const now = new Date();
+                day = String(now.getDate()).padStart(2, '0');
+                month = String(now.getMonth() + 1).padStart(2, '0');
+                year = now.getFullYear();
+            } else {
+                day = document.getElementById('day').value;
+                month = document.getElementById('month').value;
+                year = document.getElementById('year').value;
+            }
+
+            const data = new URLSearchParams();
+            data.append('VenueAvailabilityNewForm_form_VenueFilterViewSelect', '1');
+            data.append('VenueAvailabilityNewForm_form_VenueFilterSelectDateFrom', `${year}-${month}-${day}`);
+            data.append('VenueAvailabilityNewForm_form_VenueFilterSelectDateUntill', `${year}-${month}-${day}`);
+            data.append('VenueAvailabilityNewForm_form_VenueFilterViewActivity', '1696');
+            data.append('VenueAvailabilityNewForm_form_VenueFilterViewLocationGroup[]', '1459');
+            data.append('VenueAvailabilityNewForm_form_VenueFilterViewLocationGroup[]', '1462');
+
+            const targetUrl = 'https://galmaarden.zaalreservatie.be/submit.php?name=VenueAvailabilityCalendarFormAction';
+
+            fetch(encodeURIComponent(targetUrl), {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: data.toString()
+            })
+            .then(response => response.text())
+            .then(html => {
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                const reservationBlocks = doc.querySelectorAll('.reservationblock');
+                console.log(doc);
+                const statusTableBody = document.getElementById('statusTableBody');
+                statusTableBody.innerHTML = ''; // Clear previous results
+
+                let startTime = 480;
+                const timeInterval = 90;
+                let intervalValue = 0;
+                let i = 0;
+
+                reservationBlocks.forEach(item => {
+                    if (i % 6 === 0) {
+                        const time = startTime + intervalValue * timeInterval;
+                        const startTimeStr = `${String(Math.floor(time / 60)).padStart(2, '0')}:${String(time % 60).padStart(2, '0')}`;
+                        const endTime = time + timeInterval;
+                        const endTimeStr = `${String(Math.floor(endTime / 60)).padStart(2, '0')}:${String(endTime % 60).padStart(2, '0')}`;
+                        const timeRange = `${startTimeStr} - ${endTimeStr}`;
+                        let status = '';
+
+                        const backgroundColor = item.style.backgroundColor;
+                        if (backgroundColor === 'green') {
+                            status = 'Free';
+                        } else if (backgroundColor === 'red') {
+                            status = 'Reserved';
+                        } else if (backgroundColor === 'orange') {
+                            status = 'Pending';
+                        }
+
+                        const row = statusTableBody.insertRow();
+                        row.insertCell(0).textContent = timeRange;
+                        row.insertCell(1).textContent = status;
+
+                        intervalValue += 1;
+                    }
+                    i += 1;
+                });
+            })
+            .catch(error => console.error('Error:', error));
+        }
+    </script>
+</body>
+</html>
